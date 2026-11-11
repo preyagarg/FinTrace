@@ -1,0 +1,193 @@
+{% extends "layout.html" %}
+{% block title %}Transfer Money - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-arrow-left-right me-2"></i>Transfer Money{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Info Box -->
+    <div class="alert alert-info" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>ACID Compliant Transfers:</strong> Transfers are atomic — if anything fails, both accounts revert automatically (ROLLBACK)
+    </div>
+
+    <!-- Transfer Form -->
+    <div class="row mb-4">
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-send me-2"></i>New Transfer</h5>
+                </div>
+                <div class="card-body">
+                    <form id="transfer-form">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">From Account</label>
+                            <select class="form-select" id="from-account" readonly required>
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">To Account</label>
+                            <select class="form-select" id="to-account" required>
+                                <option value="">Select Destination Account</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Amount (₹)</label>
+                            <input type="number" class="form-control" id="transfer-amount" 
+                                   step="0.01" min="1" required placeholder="0.00">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <input type="text" class="form-control" id="transfer-desc" 
+                                   placeholder="Enter description">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-send me-1"></i> Transfer
+                        </button>
+                    </form>
+                    <div id="transfer-message" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Transfer History -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Transfer History</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadTransfers()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>From Account</th>
+                            <th>To Account</th>
+                            <th>Amount</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transfers-tbody">
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let userAccountId = null;
+
+document.addEventListener('DOMContentLoaded', async function() {
+    const user = getUser();
+    if (!user) return;
+
+    // Load user's accounts for from-account dropdown
+    const accountsData = await fetchAccounts();
+    if (accountsData.success && accountsData.data) {
+        // Set from account (user's account)
+        const fromSelect = document.getElementById('from-account');
+        const userAccount = accountsData.data.find(a => a.account_id == user.account_id);
+        if (userAccount) {
+            userAccountId = userAccount.account_id;
+            fromSelect.innerHTML = `<option value="${userAccount.account_id}">${userAccount.account_name} (Balance: ₹${parseFloat(userAccount.balance).toLocaleString('en-IN', {minimumFractionDigits: 2})})</option>`;
+        }
+    }
+
+    // Load all accounts for to-account dropdown (transfer destinations)
+    const allAccountsData = await fetchAllAccounts();
+    if (allAccountsData.success && allAccountsData.data) {
+        // Populate to account dropdown (exclude user's account)
+        const toSelect = document.getElementById('to-account');
+        const otherAccounts = allAccountsData.data.filter(a => a.account_id != user.account_id);
+        if (otherAccounts.length > 0) {
+            toSelect.innerHTML = '<option value="">Select Destination Account</option>';
+            otherAccounts.forEach(a => {
+                toSelect.innerHTML += `<option value="${a.account_id}">${a.account_name} (${a.user_name || 'N/A'})</option>`;
+            });
+        } else {
+            toSelect.innerHTML = '<option value="">No other accounts available</option>';
+        }
+    }
+
+    // Load transfer history
+    loadTransfers();
+
+    // Handle form submit
+    document.getElementById('transfer-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const fromAccount = parseInt(document.getElementById('from-account').value);
+        const toAccount = parseInt(document.getElementById('to-account').value);
+        const amount = parseFloat(document.getElementById('transfer-amount').value);
+        const desc = document.getElementById('transfer-desc').value;
+        const msgDiv = document.getElementById('transfer-message');
+        
+        if (!fromAccount || !toAccount || !amount) {
+            msgDiv.innerHTML = '<div class="alert alert-danger">All fields are required</div>';
+            return;
+        }
+        
+        if (fromAccount === toAccount) {
+            msgDiv.innerHTML = '<div class="alert alert-danger">Cannot transfer to the same account</div>';
+            return;
+        }
+        
+        const result = await fetch('/api/transfer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                from_account_id: fromAccount,
+                to_account_id: toAccount,
+                amount: amount,
+                description: desc
+            })
+        }).then(r => r.json());
+        
+        if (result.success) {
+            msgDiv.innerHTML = '<div class="alert alert-success alert-dismissible fade show">Transfer completed successfully! Balance updated.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            document.getElementById('transfer-form').reset();
+            // Reload from account info
+            const accountsData = await fetchAccounts();
+            const userAccount = accountsData.data.find(a => a.account_id == user.account_id);
+            if (userAccount) {
+                document.getElementById('from-account').innerHTML = `<option value="${userAccount.account_id}">${userAccount.account_name} (Balance: ₹${parseFloat(userAccount.balance).toLocaleString('en-IN', {minimumFractionDigits: 2})})</option>`;
+            }
+            loadTransfers();
+        } else {
+            msgDiv.innerHTML = `<div class="alert alert-danger alert-dismissible fade show">${result.error || 'Transfer failed'}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>`;
+        }
+    });
+});
+
+async function loadTransfers() {
+    const user = getUser();
+    if (!user || !user.account_id) return;
+    
+    const data = await fetch(`/api/transfers/${user.account_id}`).then(r => r.json());
+    const tbody = document.getElementById('transfers-tbody');
+    
+    if (data.success && data.data && data.data.length > 0) {
+        tbody.innerHTML = data.data.map(t => `
+            <tr>
+                <td class="small">${new Date(t.transfer_date).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}</td>
+                <td>${t.from_account_name || 'Account #' + t.from_account_id}</td>
+                <td>${t.to_account_name || 'Account #' + t.to_account_id}</td>
+                <td class="fw-semibold">₹${parseFloat(t.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>
+                <td class="text-muted">${t.description || '-'}</td>
+                <td><span class="badge bg-${t.status === 'success' ? 'success' : 'danger'}">${t.status}</span></td>
+            </tr>
+        `).join('');
+    } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">No transfers found</td></tr>';
+    }
+}
+</script>
+{% endblock %}

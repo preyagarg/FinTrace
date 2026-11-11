@@ -1,0 +1,136 @@
+{% extends "layout.html" %}
+{% block title %}Flagged Transactions - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-flag me-2"></i>Flagged Transactions{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Info Box -->
+    <div class="alert alert-info" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Automatic Flagging:</strong> Transactions above ₹50,000 are automatically flagged by a MySQL trigger for admin review.
+    </div>
+
+    <!-- Flag Count Badge -->
+    <div class="mb-3">
+        <span class="badge bg-danger" id="flag-count">0</span>
+        <span class="text-muted">pending flags</span>
+    </div>
+
+    <!-- Flagged Transactions Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">All Flagged Transactions</h5>
+            <div class="btn-group" role="group">
+                <button class="btn btn-sm btn-outline-warning" onclick="filterFlags('all')">All</button>
+                <button class="btn btn-sm btn-outline-danger" onclick="filterFlags('pending')">Pending</button>
+                <button class="btn btn-sm btn-outline-success" onclick="filterFlags('reviewed')">Reviewed</button>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Flag ID</th>
+                            <th>Transaction ID</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>User</th>
+                            <th>Reason</th>
+                            <th>Flagged At</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="flags-tbody">
+                        <tr><td colspan="10" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allFlags = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    const user = getUser();
+    if (!user || user.role !== 'admin') {
+        window.location.href = '/user-dashboard';
+        return;
+    }
+
+    loadFlags();
+});
+
+async function loadFlags() {
+    const data = await fetch('/api/flagged-transactions').then(r => r.json());
+    const tbody = document.getElementById('flags-tbody');
+
+    if (data.success && data.data && data.data.length > 0) {
+        allFlags = data.data;
+        renderFlags(allFlags);
+
+        // Update pending count
+        const pendingCount = allFlags.filter(f => !f.reviewed).length;
+        document.getElementById('flag-count').textContent = pendingCount + ' pending';
+    } else {
+        tbody.innerHTML = '<tr><td colspan="10" class="text-center py-5 text-muted"><i class="bi bi-inbox" style="font-size: 2rem;"></i><br>No flagged transactions</td></tr>';
+    }
+}
+
+function renderFlags(flags) {
+    const tbody = document.getElementById('flags-tbody');
+    tbody.innerHTML = flags.map(f => `
+        <tr class="${f.reviewed ? 'table-success' : 'table-danger'}">
+            <td>${f.flag_id}</td>
+            <td><span class="badge bg-light text-dark">${f.transaction_id}</span></td>
+            <td class="fw-semibold ${f.transaction_type === 'credit' ? 'text-success' : 'text-danger'}">
+                ${f.transaction_type === 'credit' ? '+' : '-'}₹${parseFloat(f.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+            </td>
+            <td><span class="badge bg-${f.transaction_type === 'credit' ? 'success' : 'danger'}">${f.transaction_type}</span></td>
+            <td class="text-muted">${f.description || '-'}</td>
+            <td><div class="fw-semibold">${f.full_name || 'N/A'}</div></td>
+            <td><i class="bi bi-exclamation-triangle text-warning me-1"></i>${f.reason || 'N/A'}</td>
+            <td class="small">${new Date(f.flagged_at).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}</td>
+            <td><span class="badge bg-${f.reviewed ? 'success' : 'danger'}">${f.reviewed ? 'Reviewed' : 'Pending'}</span></td>
+            <td>
+                ${f.reviewed ? '' : `<button class="btn btn-sm btn-outline-success" onclick="reviewFlag(${f.flag_id}, this)"><i class="bi bi-check-circle"></i> Mark Reviewed</button>`}
+            </td>
+        </tr>
+    `).join('');
+}
+
+function filterFlags(filter) {
+    let filtered = allFlags;
+    if (filter === 'pending') {
+        filtered = allFlags.filter(f => !f.reviewed);
+    } else if (filter === 'reviewed') {
+        filtered = allFlags.filter(f => f.reviewed);
+    }
+    renderFlags(filtered);
+}
+
+async function reviewFlag(flagId, btn) {
+    if (!confirm('Mark this flag as reviewed?')) return;
+
+    const result = await fetch(`/api/review-flag/${flagId}`, {method: 'POST'}).then(r => r.json());
+
+    if (result.success) {
+        btn.closest('tr').classList.remove('table-danger');
+        btn.closest('tr').classList.add('table-success');
+        btn.closest('tr').querySelector('.badge').classList.remove('bg-danger');
+        btn.closest('tr').querySelector('.badge').classList.add('bg-success');
+        btn.closest('tr').querySelector('.badge').textContent = 'Reviewed';
+        btn.remove();
+
+        // Update pending count
+        const pendingCount = allFlags.filter(f => !f.reviewed).length;
+        document.getElementById('flag-count').textContent = pendingCount + ' pending';
+    }
+}
+</script>
+{% endblock %}

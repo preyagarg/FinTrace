@@ -1,0 +1,303 @@
+{% extends "layout.html" %}
+{% block title %}Admin Dashboard - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>Admin Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Stat Cards Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl col-lg-4 col-md-6 col-sm-6 mb-3">
+            <div class="h-100" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 20px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-between align-items-center;">
+                    <div class="flex-shrink-1" style="min-width: 0;">
+                        <p style="opacity:0.7; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Total Users</p>
+                        <h2 style="font-weight:700; font-size:1.75rem; margin:8px 0 0;" id="stat-users">0</h2>
+                    </div>
+                    <div class="flex-shrink-0 ms-3" style="font-size:2.5rem; opacity:0.3; color:#00d4ff;">👥</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl col-lg-4 col-md-6 col-sm-6 mb-3">
+            <div class="h-100" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 20px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-between align-items-center;">
+                    <div class="flex-shrink-1" style="min-width: 0;">
+                        <p style="opacity:0.7; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Transactions</p>
+                        <h2 style="font-weight:700; font-size:1.75rem; margin:8px 0 0;" id="stat-transactions">0</h2>
+                    </div>
+                    <div class="flex-shrink-0 ms-3" style="font-size:2.5rem; opacity:0.3; color:#38ef7d;">📋</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl col-lg-4 col-md-6 col-sm-6 mb-3">
+            <div class="h-100" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 20px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-between align-items-center;">
+                    <div class="flex-shrink-1" style="min-width: 0;">
+                        <p style="opacity:0.7; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">System Balance</p>
+                        <h2 style="font-weight:700; font-size:1.75rem; margin:8px 0 0;" id="stat-balance">₹0</h2>
+                    </div>
+                    <div class="flex-shrink-0 ms-3" style="font-size:2.5rem; opacity:0.3; color:#8e54e9;">💰</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl col-lg-4 col-md-6 col-sm-6 mb-3">
+            <div class="h-100" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 20px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-between align-items-center;">
+                    <div class="flex-shrink-1" style="min-width: 0;">
+                        <p style="opacity:0.7; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Audit Events</p>
+                        <h2 style="font-weight:700; font-size:1.75rem; margin:8px 0 0;" id="stat-audit">0</h2>
+                    </div>
+                    <div class="flex-shrink-0 ms-3" style="font-size:2.5rem; opacity:0.3; color:#ffc107;">🛡️</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl col-lg-4 col-md-6 col-sm-6 mb-3">
+            <div class="h-100" style="background: linear-gradient(135deg, #1a1a2e, #16213e); border-radius: 16px; padding: 20px; color: white; box-shadow: 0 4px 20px rgba(0,0,0,0.15);">
+                <div class="d-flex justify-content-between align-items-center;">
+                    <div class="flex-shrink-1" style="min-width: 0;">
+                        <p style="opacity:0.7; font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; margin:0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Flagged</p>
+                        <h2 style="font-weight:700; font-size:1.75rem; margin:8px 0 0;" id="stat-flagged">0</h2>
+                    </div>
+                    <div class="flex-shrink-0 ms-3" style="font-size:2.5rem; opacity:0.3; color:#ff6b6b;">🚩</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users Summary Table -->
+    <div class="card mb-4" id="users" style="scroll-margin-top:20px;">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-people me-2"></i>All Users Summary</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Account</th>
+                            <th>Balance</th>
+                            <th>Last Login</th>
+                            <th>Credit Score</th>
+                            <th>Transactions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                        <tr><td colspan="7" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Bar for Transactions -->
+    <div class="card mb-4" id="transactions" style="scroll-margin-top:20px;">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" id="userFilter" onchange="applyFilters()">
+                        <option value="">All Users</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" id="typeFilter" onchange="applyFilters()">
+                        <option value="">All Types</option>
+                        <option value="credit">Credit Only</option>
+                        <option value="debit">Debit Only</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" id="searchFilter" 
+                           placeholder="Search by description or category..." oninput="applyFilters()">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
+                        <i class="bi bi-x-circle me-1"></i> Clear Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Transactions Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Transactions</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Account</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-tbody">
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let allTransactions = [];
+let allUsers = [];
+
+document.addEventListener('DOMContentLoaded', loadDashboard);
+
+async function loadDashboard() {
+    const user = getUser();
+    if (!user || user.role !== 'admin') {
+        window.location.href = '/user-dashboard';
+        return;
+    }
+
+    const data = await fetch('/api/dashboard/' + user.id + '/admin').then(r => r.json());
+    
+    if (data.success) {
+        const d = data.data;
+        document.getElementById('stat-users').textContent = d.total_users;
+        document.getElementById('stat-transactions').textContent = d.total_transactions;
+        document.getElementById('stat-balance').textContent = formatCurrency(d.total_system_balance);
+        document.getElementById('stat-audit').textContent = d.total_audit_events;
+        document.getElementById('stat-flagged').textContent = d.total_flagged;
+        
+        // Load users summary and populate user filter
+        const usersData = await fetch('/api/admin/users-summary').then(r => r.json());
+        if (usersData.success) {
+            allUsers = usersData.data;
+            const tbody = document.getElementById('users-tbody');
+            const userFilter = document.getElementById('userFilter');
+            
+            // Populate user filter dropdown
+            userFilter.innerHTML = '<option value="">All Users</option>';
+            
+            tbody.innerHTML = allUsers.map(u => `
+                <tr>
+                    <td>
+                        <div class="fw-semibold">${u.full_name}</div>
+                        ${u.role !== 'admin' ? `
+                            <button class="btn btn-sm btn-outline-info mt-1" onclick="filterByUser('${u.full_name}')">
+                                <i class="bi bi-filter"></i> View Account
+                            </button>
+                        ` : ''}
+                    </td>
+                    <td>${u.email}</td>
+                    <td><span class="badge bg-${u.role === 'admin' ? 'primary' : 'secondary'}">${u.role}</span></td>
+                    <td>${u.account_name || '-'}</td>
+                    <td class="fw-semibold ${u.balance >= 1000 ? 'text-success' : 'text-danger'}">${formatCurrency(u.balance || 0)}</td>
+                    <td class="small">${u.last_login ? new Date(u.last_login).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : 'Never'}</td>
+                    <td><span class="badge bg-${u.credit_score >= 750 ? 'success' : u.credit_score >= 650 ? 'primary' : u.credit_score >= 500 ? 'warning text-dark' : 'danger'}">${u.credit_score}</span></td>
+                    <td>
+                        <span class="badge bg-light text-dark">${u.transaction_count || 0}</span>
+                        ${u.role === 'admin' ? `
+                            <span class="badge bg-secondary">Protected</span>
+                        ` : `
+                            <button class="btn btn-sm btn-danger ms-1" onclick="deleteUser(${u.user_id}, '${u.full_name}')">
+                                <i class="bi bi-trash"></i> Delete
+                            </button>
+                        `}
+                    </td>
+                </tr>
+            `).join('');
+            
+            // Add users to filter dropdown
+            allUsers.forEach(u => {
+                userFilter.innerHTML += `<option value="${u.full_name}">${u.full_name}</option>`;
+            });
+        }
+        
+        // Recent transactions
+        if (d.recent_transactions && d.recent_transactions.length > 0) {
+            allTransactions = d.recent_transactions;
+            renderTransactionTable(allTransactions);
+        }
+    }
+}
+
+// Filter transactions by user (from View Account button)
+function filterByUser(userName) {
+    document.getElementById('userFilter').value = userName;
+    applyFilters();
+    document.getElementById('transactions-tbody').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Apply all filters to transactions
+function applyFilters() {
+    const userFilter = document.getElementById('userFilter').value;
+    const typeFilter = document.getElementById('typeFilter').value;
+    const searchText = document.getElementById('searchFilter').value.toLowerCase();
+
+    let filtered = allTransactions.filter(t => {
+        const matchUser = !userFilter || t.user_name === userFilter;
+        const matchType = !typeFilter || t.transaction_type === typeFilter;
+        const matchSearch = !searchText ||
+            (t.description && t.description.toLowerCase().includes(searchText)) ||
+            (t.category_name && t.category_name.toLowerCase().includes(searchText));
+        return matchUser && matchType && matchSearch;
+    });
+
+    renderTransactionTable(filtered);
+}
+
+// Clear all filters
+function clearFilters() {
+    document.getElementById('userFilter').value = '';
+    document.getElementById('typeFilter').value = '';
+    document.getElementById('searchFilter').value = '';
+    applyFilters();
+}
+
+// Render transaction table
+function renderTransactionTable(transactions) {
+    const tbody = document.getElementById('transactions-tbody');
+    if (transactions.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No transactions found</td></tr>';
+        return;
+    }
+    
+    tbody.innerHTML = transactions.map(t => `
+        <tr>
+            <td>${t.transaction_id}</td>
+            <td><div class="fw-semibold">${t.user_name}</div></td>
+            <td>${t.account_name}</td>
+            <td><span class="badge bg-light text-dark">${t.category_name}</span></td>
+            <td class="fw-semibold ${t.transaction_type === 'credit' ? 'text-success' : 'text-danger'}">
+                ${t.transaction_type === 'credit' ? '+' : '-'}${formatCurrency(t.amount)}
+            </td>
+            <td><span class="badge bg-${t.transaction_type === 'credit' ? 'success' : 'danger'}">${t.transaction_type}</span></td>
+            <td class="text-muted">${t.description || '-'}</td>
+            <td class="small">${new Date(t.transaction_date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}</td>
+        </tr>
+    `).join('');
+}
+
+// Delete user function
+async function deleteUser(userId, userName) {
+    if (!confirm(`Are you sure you want to delete ${userName}?\nThis will permanently delete their account and all their transactions.`)) {
+        return;
+    }
+    
+    const result = await fetchAPI(`/api/admin/delete-user/${userId}`, { method: 'DELETE' });
+    if (result.success) {
+        showToast('User deleted successfully', 'success');
+        // Remove row from table
+        const row = document.querySelector(`button[onclick="deleteUser(${userId}, '${userName}')"]`).closest('tr');
+        if (row) row.remove();
+    } else {
+        showToast(result.error || 'Failed to delete user', 'danger');
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "layout.html" %}
+{% block title %}Fraud Flags - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-shield-exclamation me-2"></i>Fraud Detection Flags{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Info Box -->
+    <div class="alert alert-warning" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Auto-Detection (MySQL triggers + daily event):</strong>
+        <span class="badge bg-danger">high</span> transactions over ₹50,000 made between 12 AM and 4 AM &nbsp;·&nbsp;
+        <span class="badge bg-warning text-dark">medium</span> 3+ transactions over ₹25,000 within 1 hour &nbsp;·&nbsp;
+        <span class="badge bg-secondary">low</span> users inactive for 30+ days.
+        Unreviewed flags lower the user's credit score.
+    </div>
+
+    <!-- NEW: run the inactive-user scan on demand -->
+    <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+        <span id="scan-message" class="small text-muted"></span>
+        <button class="btn btn-sm btn-outline-danger" id="run-scan-btn" onclick="runFraudScan()">
+            <i class="bi bi-search me-1"></i> Run Inactive-User Scan
+        </button>
+    </div>
+
+    <!-- Fraud Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card" style="border-left: 4px solid #dc3545;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #dc3545;">High Severity</div>
+                            <div class="h5 mb-0 fw-bold" id="high-count">0</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #dc3545;"><i class="bi bi-exclamation-triangle"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card" style="border-left: 4px solid #ffc107;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #ffc107;">Medium Severity</div>
+                            <div class="h5 mb-0 fw-bold" id="medium-count">0</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #ffc107;"><i class="bi bi-exclamation-circle"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card" style="border-left: 4px solid #198754;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #198754;">Reviewed</div>
+                            <div class="h5 mb-0 fw-bold" id="reviewed-count">0</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #198754;"><i class="bi bi-check-circle"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card" style="border-left: 4px solid #6c757d;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #6c757d;">Total Flags</div>
+                            <div class="h5 mb-0 fw-bold" id="total-count">0</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #6c757d;"><i class="bi bi-flag"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fraud Flags Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-flag me-2"></i>All Fraud Flags</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadFraudFlags()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Reason</th>
+                            <th>Severity</th>
+                            <th>Transaction</th>
+                            <th>Flagged At</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fraud-tbody">
+                        <tr><td colspan="8" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const user = getUser();
+    if (!user || user.role !== 'admin') {
+        window.location.href = '/user-dashboard';
+        return;
+    }
+    loadFraudFlags();
+});
+
+async function loadFraudFlags() {
+    const data = await fetch('/api/fraud-flags').then(r => r.json());
+    const tbody = document.getElementById('fraud-tbody');
+    
+    if (data.success && data.data) {
+        let highCount = 0, mediumCount = 0, reviewedCount = 0;
+        
+        if (data.data.length > 0) {
+            tbody.innerHTML = data.data.map(f => {
+                if (f.severity === 'high') highCount++;
+                if (f.severity === 'medium') mediumCount++;
+                if (f.reviewed) reviewedCount++;
+                
+                return '<tr class="' + (f.severity === 'high' ? 'table-danger' : '') + '">' +
+                    '<td><div class="fw-semibold">' + f.full_name + '</div></td>' +
+                    '<td>' + f.email + '</td>' +
+                    '<td><div style="max-width: 250px;">' + f.reason + '</div></td>' +
+                    '<td><span class="badge bg-' + (f.severity === 'high' ? 'danger' : f.severity === 'medium' ? 'warning text-dark' : 'secondary') + '">' + f.severity + '</span></td>' +
+                    '<td>' + (f.transaction_amount ? formatCurrency(f.transaction_amount) + ' (' + f.transaction_type + ')' : 'N/A') + '</td>' +
+                    '<td class="small">' + new Date(f.flagged_at).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) + '</td>' +
+                    '<td><span class="badge bg-' + (f.reviewed ? 'success' : 'warning') + '">' + (f.reviewed ? 'Reviewed' : 'Pending') + '</span></td>' +
+                    '<td>' +
+                        (f.reviewed ? '<span class="text-muted">Already reviewed</span>' : 
+                         '<button class="btn btn-sm btn-success" onclick="reviewFraud(' + f.fraud_id + ', \'' + f.full_name + '\')">' +
+                            '<i class="bi bi-check-circle"></i> Mark Reviewed' +
+                        '</button>') +
+                    '</td>' +
+                '</tr>';
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No fraud flags found</td></tr>';
+        }
+        
+        document.getElementById('high-count').textContent = highCount;
+        document.getElementById('medium-count').textContent = mediumCount;
+        document.getElementById('reviewed-count').textContent = reviewedCount;
+        document.getElementById('total-count').textContent = data.data.length;
+    } else {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-danger">Error loading fraud flags</td></tr>';
+    }
+}
+
+// NEW: calls the DetectInactiveUsers stored procedure
+async function runFraudScan() {
+    const btn = document.getElementById('run-scan-btn');
+    btn.disabled = true;
+    const result = await fetchAPI('/api/run-fraud-scan', { method: 'POST' });
+    btn.disabled = false;
+    document.getElementById('scan-message').textContent = result.success ? result.message : (result.error || 'Scan failed');
+    if (result.success) loadFraudFlags();
+}
+
+async function reviewFraud(fraudId, userName) {
+    if (!confirm('Mark fraud flag for ' + userName + ' as reviewed?')) {
+        return;
+    }
+    
+    const result = await fetchAPI('/api/review-fraud/' + fraudId, { method: 'POST' });
+    if (result.success) {
+        showToast('Fraud flag marked as reviewed', 'success');
+        loadFraudFlags();
+    } else {
+        showToast(result.error || 'Failed to update', 'danger');
+    }
+}
+</script>
+{% endblock %}

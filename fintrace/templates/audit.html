@@ -1,0 +1,59 @@
+{% extends "layout.html" %}
+{% block title %}Audit Log - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-journal-text me-2"></i> Audit Log{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Audit Trail</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadAuditLogs()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Table</th>
+                            <th>Action</th>
+                            <th>Record ID</th>
+                            <th>Changed By</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody id="audit-body">
+                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', loadAuditLogs);
+
+async function loadAuditLogs() {
+    const data = await fetchAuditLogs();
+    const tbody = document.getElementById('audit-body');
+    if (data.success && data.data && data.data.length > 0) {
+        tbody.innerHTML = data.data.map(a => `
+            <tr>
+                <td class="small">${new Date(a.action_time).toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}</td>
+                <td><span class="badge bg-light text-dark">${a.table_name}</span></td>
+                <td><span class="badge bg-${a.action_type === 'INSERT' ? 'success' : a.action_type === 'UPDATE' ? 'warning' : 'danger'}">${a.action_type}</span></td>
+                <td>${a.record_id}</td>
+                <td>${a.changed_by || '-'}</td>
+                <td class="small text-muted">${a.old_value ? '<strong>Old:</strong> ' + a.old_value.substring(0, 50) + '<br>' : ''}${a.new_value ? '<strong>New:</strong> ' + a.new_value.substring(0, 50) : ''}</td>
+            </tr>
+        `).join('');
+    } else {
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center py-5 text-muted">No audit logs found</td></tr>';
+    }
+}
+</script>
+{% endblock %}

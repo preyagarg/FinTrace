@@ -1,0 +1,391 @@
+{% extends "layout.html" %}
+{% block title %}User Dashboard - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-speedometer2 me-2"></i>My Dashboard{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Stat Cards Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100" style="border-left: 4px solid #6f42c1;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #6f42c1;">Account Balance</div>
+                            <div class="h5 mb-0 fw-bold text-gray-800" id="stat-balance">...</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #6f42c1;"><i class="bi bi-wallet2"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100" style="border-left: 4px solid #198754;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #198754;">Total Money In</div>
+                            <div class="h5 mb-0 fw-bold text-success" id="stat-income">...</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #198754;"><i class="bi bi-graph-up-arrow"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100" style="border-left: 4px solid #dc3545;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #dc3545;">Total Money Out</div>
+                            <div class="h5 mb-0 fw-bold text-danger" id="stat-expense">...</div>
+                        </div>
+                        <div style="font-size: 2rem; color: #dc3545;"><i class="bi bi-graph-down-arrow"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- NEW: credit score from the CalculateCreditScore() MySQL function -->
+        <div class="col-xl-3 col-md-6">
+            <div class="card h-100" style="border-left: 4px solid #0dcaf0;">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="text-xs fw-bold text-uppercase mb-1" style="color: #0aa2c0;">Credit Score</div>
+                            <div class="h5 mb-0 fw-bold" id="stat-credit">...</div>
+                            <div class="small text-muted" id="stat-credit-rating"></div>
+                        </div>
+                        <div style="font-size: 2rem; color: #0dcaf0;"><i class="bi bi-speedometer"></i></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Transaction Form -->
+    <div class="row mb-4">
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Add Transaction</h5>
+                </div>
+                <div class="card-body">
+                    <form id="add-transaction-form">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select class="form-select" id="trans-category" required>
+                                <option value="">Select Category</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Amount (₹)</label>
+                            <input type="number" class="form-control" id="trans-amount" step="0.01" min="1" required placeholder="0.00">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Type</label>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-success flex-fill type-btn active" data-type="credit">
+                                    <i class="bi bi-plus-circle"></i> Credit (Money In)
+                                </button>
+                                <button type="button" class="btn btn-outline-danger flex-fill type-btn" data-type="debit">
+                                    <i class="bi bi-dash-circle"></i> Debit (Money Out)
+                                </button>
+                            </div>
+                            <input type="hidden" id="trans-type" value="credit">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <input type="text" class="form-control" id="trans-description" placeholder="Enter description">
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus-circle me-1"></i> Add Transaction
+                        </button>
+                    </form>
+                    <div id="trans-message" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notifications Panel -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-bell me-2"></i>Notifications</h5>
+                    <span class="badge bg-warning" id="notif-count">0</span>
+                </div>
+                <div class="card-body p-0">
+                    <div id="notifications-panel" style="max-height: 300px; overflow-y: auto;">
+                        <div class="text-center py-4 text-muted">Loading...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Account Deletion Request -->
+<div class="col-12 mt-2">
+    <div class="card border-danger">
+        <div class="card-body py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1 text-danger">
+                        <i class="bi bi-trash me-2"></i>Request Account Deletion
+                    </h6>
+                    <small class="text-muted">
+                        Your request will be sent to admin for review.
+                        You cannot delete your own account directly.
+                    </small>
+                </div>
+                <button class="btn btn-sm btn-outline-danger ms-3"
+                        onclick="requestDeletion()">
+                    Request Deletion
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Recent Transactions Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Transactions</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary me-2" onclick="loadTransactions()">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+                </button>
+                <a href="/my-transactions" class="btn btn-sm btn-primary">
+                    View All Transactions →
+                </a>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Category</th>
+                            <th>Description</th>
+                            <th class="text-end">Amount</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody id="transactions-tbody">
+                        <tr><td colspan="5" class="text-center py-4 text-muted">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    const user = getUser();
+    if (!user || user.role !== 'user') {
+        window.location.href = '/admin-dashboard';
+        return;
+    }
+
+    // Handle type toggle buttons
+    document.querySelectorAll('.type-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            document.getElementById('trans-type').value = this.dataset.type;
+        });
+    });
+
+    // Set active state for credit button
+    document.querySelector('.type-btn[data-type="credit"]').classList.add('active');
+
+    // Load categories
+    const categoriesData = await fetchCategories();
+    if (categoriesData.success && categoriesData.data) {
+        const select = document.getElementById('trans-category');
+        const incomeCats = categoriesData.data.filter(c => c.category_type === 'income');
+        const expenseCats = categoriesData.data.filter(c => c.category_type === 'expense');
+        
+        if (incomeCats.length > 0) {
+            select.innerHTML += '<optgroup label="Income">';
+            incomeCats.forEach(c => {
+                select.innerHTML += `<option value="${c.category_id}" data-type="credit">${c.category_name}</option>`;
+            });
+            select.innerHTML += '</optgroup>';
+        }
+        
+        if (expenseCats.length > 0) {
+            select.innerHTML += '<optgroup label="Expense">';
+            expenseCats.forEach(c => {
+                select.innerHTML += `<option value="${c.category_id}" data-type="debit">${c.category_name}</option>`;
+            });
+            select.innerHTML += '</optgroup>';
+        }
+    }
+
+    // Load dashboard data
+    const dashData = await fetch('/api/dashboard/' + user.id + '/user').then(r => r.json());
+    if (dashData.success) {
+        const d = dashData.data;
+        document.getElementById('stat-balance').textContent = '₹' + parseFloat(d.balance).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('stat-income').textContent = '+' + parseFloat(d.total_income).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        document.getElementById('stat-expense').textContent = '-' + parseFloat(d.total_expense).toLocaleString('en-IN', {minimumFractionDigits: 2});
+        
+        // Update notification count
+        document.getElementById('notif-count').textContent = d.unread_notifications;
+    }
+
+    // NEW: load credit score
+    loadCreditScore(user.id);
+
+    // Load notifications
+    loadNotifications(user.id);
+
+    // Load transactions
+    loadTransactions();
+
+    // Handle form submit
+    document.getElementById('add-transaction-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            account_id: parseInt(user.account_id),
+            category_id: parseInt(document.getElementById('trans-category').value),
+            amount: parseFloat(document.getElementById('trans-amount').value),
+            transaction_type: document.getElementById('trans-type').value,
+            description: document.getElementById('trans-description').value
+        };
+        const result = await addTransaction(data);
+        const msgDiv = document.getElementById('trans-message');
+        if (result.success) {
+            msgDiv.innerHTML = '<div class="alert alert-success alert-dismissible fade show">Transaction added! Balance and audit log updated automatically.<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+            document.getElementById('add-transaction-form').reset();
+            // Reload dashboard data and refresh all stats
+            const dashData = await fetch('/api/dashboard/' + user.id + '/user').then(r => r.json());
+            if (dashData.success) {
+                const d = dashData.data;
+                document.getElementById('stat-balance').textContent = formatCurrency(d.balance);
+                document.getElementById('stat-income').textContent = '+' + formatCurrency(d.total_income);
+                document.getElementById('stat-expense').textContent = '-' + formatCurrency(d.total_expense);
+                // FIX: reload the table from the server (the old code built the new row
+                // from dashboard data, so it showed "undefined" for amount and type)
+                loadTransactions();
+                loadCreditScore(user.id);
+            }
+        } else {
+            msgDiv.innerHTML = '<div class="alert alert-danger alert-dismissible fade show">' + (result.error || 'Error') + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>';
+        }
+    });
+});
+
+async function loadCreditScore(userId) {
+    const r = await fetchAPI('/api/credit-score/' + userId);
+    if (r.success) {
+        document.getElementById('stat-credit').textContent = r.score + ' / 900';
+        document.getElementById('stat-credit-rating').textContent = r.rating;
+    } else {
+        document.getElementById('stat-credit').textContent = '-';
+    }
+}
+
+async function loadTransactions() {
+    const user = getUser();
+    const data = await fetch('/api/my-transactions/' + user.account_id).then(r => r.json());
+    const tbody = document.getElementById('transactions-tbody');
+    if (data.success && data.data && data.data.length > 0) {
+        tbody.innerHTML = data.data.map(t => `
+            <tr>
+                <td class="small">${new Date(t.transaction_date).toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'})}</td>
+                <td><span class="badge bg-light text-dark">${t.category_name}</span></td>
+                <td class="text-muted">${t.description || '-'}</td>
+                <td class="text-end fw-semibold ${t.transaction_type === 'credit' ? 'text-success' : 'text-danger'}">
+                    ${t.transaction_type === 'credit' ? '+' : '-'}₹${parseFloat(t.amount).toLocaleString('en-IN', {minimumFractionDigits: 2})}
+                </td>
+                <td><span class="badge bg-${t.transaction_type === 'credit' ? 'success' : 'danger'}">${t.transaction_type}</span></td>
+            </tr>
+        `).join('');
+    } else {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">No transactions found</td></tr>';
+    }
+}
+
+async function loadNotifications(userId) {
+    const data = await fetch('/api/notifications/' + userId).then(r => r.json());
+    const panel = document.getElementById('notifications-panel');
+    if (data.success && data.data && data.data.length > 0) {
+        panel.innerHTML = data.data.map(n => `
+            <div class="p-3 ${n.is_read ? 'bg-white' : 'bg-light'} border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="mb-1">
+                            ${getNotificationIcon(n.type)}
+                            <span class="ms-2">${n.message}</span>
+                        </div>
+                        <small class="text-muted">${new Date(n.created_at).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}</small>
+                    </div>
+                    ${n.is_read ? '' : `<button class="btn btn-sm btn-outline-secondary" onclick="markRead(${n.notification_id}, this)">Mark Read</button>`}
+                </div>
+            </div>
+        `).join('');
+    } else {
+        panel.innerHTML = '<div class="text-center py-4 text-muted">No notifications</div>';
+    }
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'low_balance': '<i class="bi bi-exclamation-triangle text-warning"></i>',
+        'high_value': '<i class="bi bi-flag text-danger"></i>',
+        'budget_exceeded': '<i class="bi bi-pie-chart text-info"></i>',
+        'transfer': '<i class="bi bi-arrow-left-right text-primary"></i>',
+        'system': '<i class="bi bi-gear text-secondary"></i>'
+    };
+    return icons[type] || '<i class="bi bi-bell text-muted"></i>';
+}
+
+async function markRead(notificationId, btn) {
+    const result = await fetch('/api/mark-notification-read/' + notificationId, {method: 'POST'});
+    const data = await result.json();
+    if (data.success) {
+        btn.closest('.p-3').classList.remove('bg-light');
+        btn.closest('.p-3').classList.add('bg-white');
+        btn.remove();
+        // Update count
+        const user = getUser();
+        const notifData = await fetch('/api/dashboard/' + user.id + '/user').then(r => r.json());
+        if (notifData.success) {
+            document.getElementById('notif-count').textContent = notifData.data.unread_notifications;
+        }
+    }
+}
+
+async function confirmDelete(id) {
+    if (confirm('Delete transaction #' + id + '? Deleted. Audit log updated by trigger.')) {
+        const result = await deleteTransaction(id);
+        if (result.success) {
+            loadTransactions();
+        }
+    }
+}
+
+async function requestDeletion() {
+    const reason = prompt(
+        'Please provide a reason for deleting your account:\n' +
+        '(Your request will be reviewed by admin)'
+    );
+    if (reason === null) return; // cancelled
+
+    const user = getUser();
+    const res  = await fetch('/api/request-account-deletion', {
+        method:  'POST',
+        headers: {'Content-Type': 'application/json'},
+        body:    JSON.stringify({reason: reason || 'No reason provided'})
+    }).then(r => r.json());
+
+    if (res.success) {
+        alert('Request submitted successfully!\nAdmin will review and process your request.');
+    } else {
+        alert('Error: ' + res.error);
+    }
+}
+</script>
+{% endblock %}

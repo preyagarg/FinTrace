@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+{% block title %}Delete Requests - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-trash me-2"></i>Account Deletion Requests{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <strong>These users have requested their accounts be deleted.</strong>
+        Review each request carefully before approving.
+        Approved deletions are permanent and cannot be undone.
+    </div>
+
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Pending Requests</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadRequests()">
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Req #</th>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Account</th>
+                            <th>Balance</th>
+                            <th>Reason</th>
+                            <th>Requested At</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="req-tbody">
+                        <tr><td colspan="9" class="text-center py-4 text-muted">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const user = getUser();
+    if (!user || user.role !== 'admin') {
+        window.location.href = '/user-dashboard'; return;
+    }
+    loadRequests();
+});
+
+async function loadRequests() {
+    const res   = await fetch('/api/delete-requests').then(r=>r.json());
+    const tbody = document.getElementById('req-tbody');
+
+    if (!res.success || !res.data.length) {
+        tbody.innerHTML =
+            `<tr><td colspan="9" class="text-center py-5 text-muted">
+               <i class="bi bi-inbox" style="font-size:2rem"></i>
+               <br>No deletion requests
+             </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = res.data.map(r => {
+        const statusBadge = {
+            pending:  'badge bg-warning text-dark',
+            approved: 'badge bg-success',
+            rejected: 'badge bg-secondary'
+        }[r.status] || 'badge bg-light';
+
+        const actions = r.status === 'pending' ? `
+            <button class="btn btn-sm btn-success me-1"
+                    onclick="handle(${r.request_id},'approve','${r.full_name}')">
+                <i class="bi bi-check-lg"></i> Approve
+            </button>
+            <button class="btn btn-sm btn-outline-danger"
+                    onclick="handle(${r.request_id},'reject','${r.full_name}')">
+                <i class="bi bi-x-lg"></i> Reject
+            </button>` : '—';
+
+        return `
+        <tr class="${r.status==='pending'?'table-warning':''}">
+          <td>${r.request_id}</td>
+          <td class="fw-semibold">${r.full_name}</td>
+          <td class="small text-muted">${r.email}</td>
+          <td>${r.account_name}</td>
+          <td class="fw-semibold ${parseFloat(r.balance)>0?'text-success':'text-muted'}">
+              ₹${parseFloat(r.balance).toLocaleString('en-IN',{minimumFractionDigits:2})}
+          </td>
+          <td class="small text-muted">${r.reason||'—'}</td>
+          <td class="small">${new Date(r.requested_at).toLocaleDateString('en-IN',
+              {day:'2-digit',month:'short',year:'numeric'})}</td>
+          <td><span class="${statusBadge}">${r.status}</span></td>
+          <td>${actions}</td>
+        </tr>`;
+    }).join('');
+}
+
+async function handle(requestId, action, name) {
+    const verb = action === 'approve' ? 'APPROVE and DELETE' : 'REJECT';
+    if (!confirm(`${verb} deletion request for "${name}"?`)) return;
+
+    const res = await fetch(`/api/handle-delete-request/${requestId}`, {
+        method:  'POST',
+        headers: {'Content-Type':'application/json'},
+        body:    JSON.stringify({action})
+    }).then(r=>r.json());
+
+    if (res.success) {
+        alert(res.message);
+        loadRequests();
+    } else {
+        alert('Error: ' + res.error);
+    }
+}
+</script>
+{% endblock %}

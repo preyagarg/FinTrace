@@ -1,0 +1,101 @@
+{% extends "layout.html" %}
+{% block title %}Notifications - FinTrace{% endblock %}
+{% block page_title %}<i class="bi bi-bell me-2"></i>Notifications{% endblock %}
+{% block content %}
+<div class="container-fluid">
+    <!-- Info Box -->
+    <div class="alert alert-info" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Automatic Notifications:</strong> Notifications are generated automatically by database triggers — low balance warnings and budget alerts are created without any manual intervention.
+    </div>
+
+    <!-- Notifications List -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">All Notifications</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="loadNotifications()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body p-0" id="notifications-list">
+            <div class="text-center py-4 text-muted">Loading...</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const user = getUser();
+    if (!user) return;
+
+    loadNotifications();
+});
+
+async function loadNotifications() {
+    const user = getUser();
+    if (!user) return;
+
+    const data = await fetch(`/api/notifications/${user.id}`).then(r => r.json());
+    const panel = document.getElementById('notifications-list');
+
+    if (data.success && data.data && data.data.length > 0) {
+        panel.innerHTML = data.data.map(n => `
+            <div class="p-3 ${n.is_read ? 'bg-white' : 'bg-light'} border-bottom">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        <div class="mb-2">
+                            ${getNotificationIcon(n.type)}
+                            <span class="ms-2 ${n.is_read ? 'text-muted' : 'fw-semibold'}">${n.message}</span>
+                        </div>
+                        <small class="text-muted">
+                            <i class="bi bi-clock me-1"></i>
+                            ${new Date(n.created_at).toLocaleString('en-IN', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'})}
+                        </small>
+                    </div>
+                    ${n.is_read ? '' : `<button class="btn btn-sm btn-outline-secondary ms-2" onclick="markRead(${n.notification_id}, this)">Mark Read</button>`}
+                </div>
+            </div>
+        `).join('');
+    } else {
+        panel.innerHTML = '<div class="text-center py-5 text-muted"><i class="bi bi-bell-slash" style="font-size: 2rem;"></i><br>No notifications</div>';
+    }
+}
+
+function getNotificationIcon(type) {
+    const icons = {
+        'low_balance': '<i class="bi bi-exclamation-triangle text-warning"></i>',
+        'high_value': '<i class="bi bi-flag text-danger"></i>',
+        'budget_exceeded': '<i class="bi bi-pie-chart text-info"></i>',
+        'transfer': '<i class="bi bi-arrow-left-right text-primary"></i>',
+        'system': '<i class="bi bi-gear text-secondary"></i>'
+    };
+    return icons[type] || '<i class="bi bi-bell text-muted"></i>';
+}
+
+async function markRead(notificationId, btn) {
+    const result = await fetch(`/api/mark-notification-read/${notificationId}`, {method: 'POST'}).then(r => r.json());
+
+    if (result.success) {
+        btn.closest('.p-3').classList.remove('bg-light');
+        btn.closest('.p-3').classList.add('bg-white');
+        btn.closest('.p-3').querySelector('.fw-semibold').classList.remove('fw-semibold');
+        btn.closest('.p-3').querySelector('.fw-semibold').classList.add('text-muted');
+        btn.remove();
+
+        // Update user dashboard count if available
+        const user = getUser();
+        if (user) {
+            const dashData = await fetch(`/api/dashboard/${user.id}/user`).then(r => r.json());
+            if (dashData.success) {
+                const notifCount = document.querySelector('#notif-count');
+                if (notifCount) {
+                    notifCount.textContent = dashData.data.unread_notifications;
+                }
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
