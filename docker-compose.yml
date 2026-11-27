@@ -1,16 +1,39 @@
-# The database is Amazon RDS for MySQL 8.0 (not a container). See README "Deploy with Docker".
 services:
+  db:
+    image: mysql:8.0
+    command: ["--event-scheduler=ON", "--log-bin-trust-function-creators=1"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-fintrace}
+      MYSQL_USER: ${MYSQL_USER:-fintrace}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - ./database/03-grants.sh:/docker-entrypoint-initdb.d/03-grants.sh:ro
+    healthcheck:
+      # -h 127.0.0.1 (TCP) fails during the entrypoint's temporary --skip-networking init server,
+      # so the service only becomes healthy once the real server is up.
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
   app:
     build: ./fintrace
     environment:
-      MYSQL_HOST: ${MYSQL_HOST:?set MYSQL_HOST (RDS endpoint) in .env}
-      MYSQL_PORT: ${MYSQL_PORT:-3306}
-      MYSQL_USER: ${MYSQL_USER:?set MYSQL_USER in .env}
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-fintrace}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
-      MYSQL_DB: ${MYSQL_DB:-fintrace}
-      # RDS CA bundle baked into the image; set empty in .env to disable TLS (not recommended)
-      MYSQL_SSL_CA: ${MYSQL_SSL_CA-/etc/ssl/certs/rds-global-bundle.pem}
+      MYSQL_DB: ${MYSQL_DATABASE:-fintrace}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY in .env}
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     expose:
       - "8000"
@@ -19,7 +42,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 60s
+      start_period: 20s
 
   caddy:
     image: caddy:2
@@ -38,5 +61,6 @@ services:
     restart: unless-stopped
 
 volumes:
+  db_data:
   caddy_data:
   caddy_config:
