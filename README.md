@@ -84,6 +84,28 @@ mysql -u root -p < database\seed.sql
 
 ---
 
+## 🐳 Deploy with Docker
+
+Runs MySQL 8, the Flask app (gunicorn) and Caddy (automatic HTTPS) with one command.
+
+**Prerequisites:** Docker Engine + Docker Compose v2, ports 80/443 free, and (for real HTTPS) a domain whose DNS **A record** points at the server.
+
+```bash
+cp .env.example .env          # then edit: DOMAIN, passwords, SECRET_KEY
+docker compose up -d --build
+docker compose logs -f        # watch startup (Ctrl+C to stop following)
+```
+Open `https://<your DOMAIN>`. With `DOMAIN=localhost`, Caddy uses its internal CA, so the browser shows a certificate warning (or run `docker compose exec caddy caddy trust`).
+
+- `MYSQL_DATABASE` must stay `fintrace` (`schema.sql` hardcodes the name).
+- `schema.sql` and `seed.sql` load **only on the first start** (while the `db_data` volume is empty). Later restarts keep your data.
+- Reset everything (deletes the database): `docker compose down -v`, then `docker compose up -d --build`.
+- The database is not published to the host; only Caddy listens on 80/443.
+
+> ⚠️ `seed.sql` creates demo accounts that all use the password `password123` (admin: `rahul@gmail.com`). For production, change these passwords (or delete the demo users) and register your own admin.
+
+---
+
 ## 📂 Project structure
 ```
 fintrace_project/

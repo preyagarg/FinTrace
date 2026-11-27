@@ -6,6 +6,7 @@ Every change made during the clean-up is marked with a  # FIX:  comment
 so you can see what was changed and why.
 """
 import os
+import logging
 from functools import wraps
 
 import MySQLdb
@@ -38,6 +39,8 @@ app = Flask(__name__)
 app.json = LocalTimeJSONProvider(app)
 # FIX: secret key now comes from .env instead of being hard-coded in the code
 app.secret_key = os.getenv('SECRET_KEY', 'dev-only-change-me')
+if app.secret_key == 'dev-only-change-me':
+    logging.getLogger(__name__).warning('SECRET_KEY is unset or still the default; set a strong SECRET_KEY in production.')
 CORS(app)
 init_db(app)
 
