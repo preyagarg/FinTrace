@@ -702,8 +702,8 @@ DELIMITER ;
 
 -- =====================================================================
 -- PART 6: SCHEDULED EVENT
--- Runs the inactive-user scan once a day (needs event_scheduler=ON,
--- which is the default in MySQL 8).
+-- Runs the inactive-user scan once a day (needs event_scheduler=ON:
+-- the default in MySQL 8, but on Amazon RDS set it in the DB parameter group).
 -- =====================================================================
 CREATE EVENT evt_detect_inactive_users
 ON SCHEDULE EVERY 1 DAY
