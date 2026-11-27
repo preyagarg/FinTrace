@@ -28,6 +28,9 @@ RUN apt-get update \
     && groupadd --system app \
     && useradd --system --gid app --home-dir /app --no-create-home app
 
+# Amazon RDS CA bundle, used to verify TLS connections to the database
+ADD --chmod=644 https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/certs/rds-global-bundle.pem
+
 WORKDIR /app
 COPY --from=builder --chown=app:app /app /app
 

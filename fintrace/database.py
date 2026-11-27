@@ -32,6 +32,11 @@ def init_db(app):
     app.config['MYSQL_PORT']     = int(os.getenv('MYSQL_PORT', 3306))
     app.config['MYSQL_CHARSET']  = 'utf8mb4'
 
+    # Optional TLS (e.g. Amazon RDS): path to the CA bundle used to verify the server
+    ssl_ca = os.getenv('MYSQL_SSL_CA', '').strip()
+    ssl_opts = {'ssl': {'ca': ssl_ca}} if ssl_ca else {}
+    app.config['MYSQL_CUSTOM_OPTIONS'] = ssl_opts or None
+
     # Wait for MySQL to accept connections (useful when started via docker compose)
     retries = int(os.getenv('DB_CONNECT_RETRIES', 30))
     for attempt in range(1, retries + 1):
@@ -43,6 +48,8 @@ def init_db(app):
                 passwd=app.config['MYSQL_PASSWORD'],
                 db=app.config['MYSQL_DB'],
                 port=app.config['MYSQL_PORT'],
+                connect_timeout=10,
+                **ssl_opts,
             )
             conn.close()
             log.warning('MySQL connection OK.')

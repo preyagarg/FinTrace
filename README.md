@@ -84,23 +84,45 @@ mysql -u root -p < database\seed.sql
 
 ---
 
-## 🐳 Deploy with Docker
+## 🐳 Deploy with Docker + Amazon RDS
 
-Runs MySQL 8, the Flask app (gunicorn) and Caddy (automatic HTTPS) with one command.
+Runs the Flask app (gunicorn) and Caddy (automatic HTTPS) in Docker; the database is **Amazon RDS for MySQL 8.0**.
 
 **Prerequisites:** Docker Engine + Docker Compose v2, ports 80/443 free, and (for real HTTPS) a domain whose DNS **A record** points at the server.
 
+### 1. Create the RDS instance
+1. **Parameter group** (RDS → Parameter groups → Create, family `mysql8.0`). Set:
+   - `log_bin_trust_function_creators` = `1` (the RDS master user has no `SUPER`, so creating triggers/functions fails without it)
+   - `event_scheduler` = `ON` (RDS defaults to OFF; needed for `evt_detect_inactive_users`)
+   - optional: `time_zone` = e.g. `Asia/Kolkata` (RDS runs in UTC; `NOW()` / seed dates use the server time zone)
+2. **Create database** → MySQL 8.0, attach that parameter group, note the master username/password.
+3. **Networking:** keep *Public access = No* and put the app server (e.g. EC2) in the same VPC. In the RDS security group, allow inbound **3306** only from the app server's security group.
+
+### 2. Load the schema (once)
+From the app server (or any host that can reach RDS):
 ```bash
-cp .env.example .env          # then edit: DOMAIN, passwords, SECRET_KEY
+docker run --rm -i mysql:8.0 mysql -h <RDS endpoint> -u admin -p'<password>' < database/schema.sql
+docker run --rm -i mysql:8.0 mysql -h <RDS endpoint> -u admin -p'<password>' < database/seed.sql
+```
+⚠️ `schema.sql` **drops and recreates** the `fintrace` database — only run it again to reset everything.
+
+Optional (recommended): create a less-privileged app user instead of using the master user:
+```sql
+CREATE USER 'fintrace'@'%' IDENTIFIED BY '<strong password>';
+GRANT ALL PRIVILEGES ON fintrace.* TO 'fintrace'@'%';
+```
+
+### 3. Start the app
+```bash
+cp .env.example .env          # then edit: DOMAIN, MYSQL_HOST (RDS endpoint), MYSQL_USER/PASSWORD, SECRET_KEY
 docker compose up -d --build
 docker compose logs -f        # watch startup (Ctrl+C to stop following)
 ```
 Open `https://<your DOMAIN>`. With `DOMAIN=localhost`, Caddy uses its internal CA, so the browser shows a certificate warning (or run `docker compose exec caddy caddy trust`).
 
-- `MYSQL_DATABASE` must stay `fintrace` (`schema.sql` hardcodes the name).
-- `schema.sql` and `seed.sql` load **only on the first start** (while the `db_data` volume is empty). Later restarts keep your data.
-- Reset everything (deletes the database): `docker compose down -v`, then `docker compose up -d --build`.
-- The database is not published to the host; only Caddy listens on 80/443.
+- `MYSQL_DB` must stay `fintrace` (`schema.sql` hardcodes the name).
+- Connections to RDS use TLS, verified against the RDS CA bundle baked into the image. To enforce TLS on the server too, set `require_secure_transport = ON` in the parameter group.
+- Backups/restores are handled by RDS (automated backups / snapshots).
 
 > ⚠️ `seed.sql` creates demo accounts that all use the password `password123` (admin: `rahul@gmail.com`). For production, change these passwords (or delete the demo users) and register your own admin.
 
